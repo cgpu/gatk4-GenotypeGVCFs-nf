@@ -44,10 +44,10 @@ if (params.help)
 
 // Parse Input Parameters
 gvcf_ch = Channel
-			.fromPath(params.input)
+			.fromPath(params.inputdir_file_regex)
 
 gvcf_idx_ch = Channel
-			.fromPath(params.input)
+			.fromPath(params.inputdir_file_regex)
 			.map { file -> file+".idx" }
 
 			
