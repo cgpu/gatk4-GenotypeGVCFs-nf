@@ -31,44 +31,18 @@ log.info ""
 if (params.help)
 {
     log.info "---------------------------------------------------------------------"
-    log.info "  USAGE                                                 "
+    log.info "                             USAGE                                   "
     log.info "---------------------------------------------------------------------"
     log.info ""
     log.info "nextflow run iarcbioinfo/gatk4-GenotypeGVCFs-nf [OPTIONS]"
     log.info ""
     log.info "Mandatory arguments:"
-    log.info "--input                         VCF FILES                 All cohort gVCF files (between quotes)"
-    log.info "--output_dir                    OUTPUT FOLDER             Output for VCF file"
-    log.info "--cohort                        STRING                    Cohort name"
+    log.info "--inputdir_file_regex           VCF FILES                 All cohort gVCF files (between quotes)"
     log.info "--ref_fasta                     FASTA FILE                Reference FASTA file"
-    log.info "--gatk_exec                     BIN PATH                  Full path to GATK4 executable"
-    log.info "--dbsnp                         VCF FILE                  dbSNP VCF file"
-    log.info "--mills                         VCF FILE                  Mills and 1000G gold standard indels VCF file"
-    log.info "--axiom                         VCF FILE                  Axiom Exome Plus genotypes all populations poly VCF file"
-    log.info "--hapmap                        VCF FILE                  hapmap VCF file"
-    log.info "--omni                          VCF FILE                  1000G omni VCF file"
-    log.info "--onekg                         VCF FILE                  1000G phase1 snps high confidence VCF file"
     exit 1
 }
 
-//
-// Parameters Init
-//
-params.input         = null
-params.output_dir    = "."
-params.cohort        = "cohort"
-params.ref_fasta     = null
-params.gatk_exec     = null
-params.dbsnp         = null
-params.mills         = null
-params.axiom         = null
-params.hapmap        = null
-params.omni          = null
-params.onekg         = null
-
-//
 // Parse Input Parameters
-//
 gvcf_ch = Channel
 			.fromPath(params.input)
 
@@ -100,6 +74,8 @@ chromosomes_ch = Channel
 //
 process GenomicsDBImport {
 
+    container 'broadinstitute/gatk:latest'
+
 	cpus 1 
 
     time { (10.hour + (2.hour * task.attempt)) } // First attempt 12h, second 14h, etc
@@ -120,7 +96,7 @@ process GenomicsDBImport {
 	
     script:
 	"""
-	${GATK} GenomicsDBImport --java-options "-Xmx24g -Xms24g -Djava.io.tmpdir=/tmp" \
+	gatk GenomicsDBImport --java-options "-Xmx24g -Xms24g -Djava.io.tmpdir=/tmp" \
 	${gvcf.collect { "-V $it " }.join()} \
     -L ${chr} \
     --batch-size 50 \
@@ -130,11 +106,10 @@ process GenomicsDBImport {
 	"""
 }	
 
-
-//
 // Process launching GenotypeGVCFs on the previously created genDB, per chromosome
-//
 process GenotypeGVCFs {
+
+    container 'broadinstitute/gatk:latest'
 
 	cpus 4 
 	memory '48 GB'
@@ -164,7 +139,7 @@ process GenotypeGVCFs {
 
     WORKSPACE=\$( basename ${workspace} )
 
-    ${GATK} --java-options "-Xmx5g -Xms5g" \
+    gatk --java-options "-Xmx5g -Xms5g" \
      GenotypeGVCFs \
      -R ${genome} \
      -O ${params.cohort}.${chr}.vcf \
@@ -178,11 +153,10 @@ process GenotypeGVCFs {
 	"""
 }	
 
-
-//
 // Process Hard Filtering on ExcessHet, per chromosome
-//
 process HardFilter {
+
+    container 'broadinstitute/gatk:latest'
 
 	cpus 1
 	memory '24 GB'
@@ -199,14 +173,14 @@ process HardFilter {
 
     script:
 	"""
-	${GATK} --java-options "-Xmx3g -Xms3g" \
+	gatk --java-options "-Xmx3g -Xms3g" \
       VariantFiltration \
       --filter-expression "ExcessHet > ${excess_het_threshold}" \
       --filter-name ExcessHet \
       -V ${vcf} \
       -O ${params.cohort}.${chr}.markfiltered.vcf
 
-	${GATK} --java-options "-Xmx3g -Xms3g" \
+	gatk --java-options "-Xmx3g -Xms3g" \
       SelectVariants \
       --exclude-filtered \
       -V ${params.cohort}.${chr}.markfiltered.vcf \
@@ -215,9 +189,9 @@ process HardFilter {
 	"""
 }	
 
-
-
 process GatherVcfs {
+
+    container 'broadinstitute/gatk:latest'
 
 	cpus 1
 	memory '48 GB'
@@ -243,19 +217,14 @@ process GatherVcfs {
 
     script:
 	"""
-	${GATK} --java-options "-Xmx3g -Xms3g" \
+	gatk --java-options "-Xmx3g -Xms3g" \
       GatherVcfs \
       ${vcf.findAll{ it=~/chr\d+/ }.collect().sort{ it.name.tokenize('.')[1].substring(3).toInteger() }.plus(vcf.find{ it=~/chrX/ }).plus(vcf.find{ it=~/chrY/ }).collect{ "--INPUT $it " }.join() } \
       --OUTPUT ${params.cohort}.vcf
-
 	"""
 }	
 
-
-
-//
 // Process SID recalibration
-//
 process SID_VariantRecalibrator {
 
 	cpus 1
@@ -275,7 +244,7 @@ process SID_VariantRecalibrator {
 
     script:
 	"""
-    ${GATK} --java-options "-Xmx24g -Xms24g" \
+    gatk --java-options "-Xmx24g -Xms24g" \
       VariantRecalibrator \
       -R ${genome} \
       -V ${vcf} \
@@ -292,11 +261,7 @@ process SID_VariantRecalibrator {
 	"""
 }	
 
-
-
-//
 // Process SNV recalibration
-//
 process SNV_VariantRecalibrator {
 
 	cpus 1
@@ -316,7 +281,7 @@ process SNV_VariantRecalibrator {
 
     script:
 	"""
-    ${GATK} --java-options "-Xmx90g -Xms90g" \
+    gatk --java-options "-Xmx90g -Xms90g" \
       VariantRecalibrator \
       -R ${genome} \
       -V ${vcf} \
@@ -334,11 +299,7 @@ process SNV_VariantRecalibrator {
 	"""
 }	
 
-
-
-//
 // Process Apply SNV and SID recalibrations
-//
 process ApplyRecalibration {
 
 	cpus 1 
@@ -359,7 +320,7 @@ process ApplyRecalibration {
 
     script:
 	"""
-    ${GATK} --java-options "-Xmx5g -Xms5g" \
+    gatk --java-options "-Xmx5g -Xms5g" \
       ApplyVQSR \
       -O tmp.indel.recalibrated.vcf \
       -V ${input_vcf} \
@@ -370,7 +331,7 @@ process ApplyRecalibration {
       --create-output-variant-index true \
       -mode INDEL
 
-    ${GATK} --java-options "-Xmx5g -Xms5g" \
+    gatk --java-options "-Xmx5g -Xms5g" \
       ApplyVQSR \
       -O ${params.cohort}.recalibrated.vcf \
       -V tmp.indel.recalibrated.vcf \
