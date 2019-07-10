@@ -79,7 +79,7 @@ process GenomicsDBImport {
 	cpus 1 
 
     time { (10.hour + (2.hour * task.attempt)) } // First attempt 12h, second 14h, etc
-    memory { (64.GB + (8.GB * task.attempt)) } // First attempt 72GB, second 80GB, etc
+    memory { (16.GB + (8.GB * task.attempt)) } // First attempt 72GB, second 80GB, etc
 
     errorStrategy 'retry'
     maxRetries 3
@@ -112,7 +112,7 @@ process GenotypeGVCFs {
     container 'broadinstitute/gatk:latest'
 
 	cpus 4 
-	memory '48 GB'
+	memory '12 GB'
 	time '20h'
 	
 	tag { chr }
@@ -159,7 +159,7 @@ process HardFilter {
     container 'broadinstitute/gatk:latest'
 
 	cpus 1
-	memory '24 GB'
+	memory '12 GB'
 	time '12h'
 	
 	tag { chr }
@@ -194,7 +194,7 @@ process GatherVcfs {
     container 'broadinstitute/gatk:latest'
 
 	cpus 1
-	memory '48 GB'
+	memory '12 GB'
 	time '12h'
 	
 	tag "${params.cohort}"
@@ -228,7 +228,7 @@ process GatherVcfs {
 process SID_VariantRecalibrator {
 
 	cpus 1
-	memory '24 GB'
+	memory '12 GB'
 	time '12h'
 	
 	tag "${params.cohort}"
@@ -265,7 +265,7 @@ process SID_VariantRecalibrator {
 process SNV_VariantRecalibrator {
 
 	cpus 1
-	memory '90 GB'
+	memory '12 GB'
 	time '12h'
 	
 	tag "${params.cohort}"
