@@ -44,14 +44,11 @@ if (params.help)
 
 // Parse Input Parameters
 gvcf_ch = Channel
-			.fromPath(params.inputdir_file_regex)
+			.fromPath("${params.inputdir_file_regex}/*.g.vcf")
 
 gvcf_idx_ch = Channel
-			.fromPath(params.inputdir_file_regex)
-			.map { file -> file+".idx" }
-
+			.fromPath("${params.inputdir_file_regex}/*.g.vcf.idx")
 			
-GATK                              = params.gatk_exec
 ref                               = file(params.ref_fasta)
 dbsnp_resource_vcf                = file(params.dbsnp)
 mills_resource_vcf                = file(params.mills)
