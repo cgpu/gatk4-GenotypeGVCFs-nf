@@ -222,6 +222,7 @@ process GatherVcfs {
 }	
 
 // Process SID recalibration
+// Is suggested only if cohort sample size N > 30
 process SID_VariantRecalibrator {
 
 	cpus 1
